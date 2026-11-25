@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>論文格式來找碴 🔍</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@400;600;700&family=Times+New+Roman&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --paper-bg: #ffffff;
+      --desk-bg: #f1f5f9;
+      --ink-color: #1e293b;
+      --accent-blue: #2563eb;
+      --error-red: #dc2626;
+      --pass-green: #059669;
+    }
+
+    body {
+      font-family: 'Inter', 'Noto Sans TC', sans-serif;
+      background-color: var(--desk-bg);
+      color: var(--ink-color);
+      overflow-x: hidden;
+    }
+
+    /* 模擬學術論文紙張排版 */
+    .academic-paper-zh {
+      font-family: 'Noto Serif TC', serif;
+      line-height: 1.95;
+      letter-spacing: 0.02em;
+    }
+
+    .academic-paper-en {
+      font-family: 'Times New Roman', Georgia, serif;
+      line-height: 1.85;
+    }
+
+    .paper-sheet {
+      background: var(--paper-bg);
+      box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.08), 0 0 1px 1px rgba(15, 23, 42, 0.05);
+      border-radius: 6px;
+      position: relative;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    /* 放大鏡審查模式游標與互動效果 */
+    body.inspect-mode {
+      cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='8' fill='rgba(37,99,235,0.12)'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>") 12 12, zoom-in;
+    }
+
+    body.inspect-mode .inspectable {
+      border-radius: 4px;
+      transition: background-color 0.15s ease, outline 0.15s ease;
+      padding: 1px 3px;
+      margin: -1px -3px;
+    }
+
+    body.inspect-mode .inspectable:hover {
+      background-color: rgba(37, 99, 235, 0.12);
+      outline: 1.5px dashed #3b82f6;
+    }
+
+    /* 已抓出的錯誤標記（紅圈審查印記） */
+    .found-error {
+      background-color: #fef2f2 !important;
+      border: 2px solid #dc2626 !important;
+      border-radius: 6px !important;
+      padding: 2px 6px !important;
+      position: relative;
+      box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+      cursor: pointer !important;
+    }
+
+    .found-error::after {
+      content: "✗ 審查批註";
+      display: inline-block;
+      font-family: 'Inter', 'Noto Sans TC', sans-serif;
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #ffffff;
+      background-color: #dc2626;
+      padding: 1px 6px;
+      border-radius: 9999px;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+
+    /* 逐句可點選：句子跨行時，紅框／高亮每一行都要完整 */
+    .seg, .found-error {
+      -webkit-box-decoration-break: clone;
+      box-decoration-break: clone;
+    }
+
+    /* 點錯時的晃動動畫 */
+    @keyframes shakeError {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-6px); }
+      40% { transform: translateX(6px); }
+      60% { transform: translateX(-4px); }
+      80% { transform: translateX(4px); }
+    }
+
+    .shake-wrong {
+      animation: shakeError 0.35s ease-in-out;
+      background-color: rgba(245, 158, 11, 0.2) !important;
+      outline: 2px solid #f59e0b !important;
+    }
+
+    /* 懸浮放大鏡按鈕脈衝提示 */
+    @keyframes pulseRing {
+      0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.45); }
+      70% { box-shadow: 0 0 0 10px rgba(37, 99, 235, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+    }
+
+    .inspect-active-btn {
+      animation: pulseRing 2s infinite;
+    }
+
+    /* Reference 懸掛縮排 */
+    .apa-hanging-indent {
+      padding-left: 2em;
+      text-indent: -2em;
+    }
+
+    /* 自訂捲軸 */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #e2e8f0;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #94a3b8;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #64748b;
+    }
+  
+[hidden]{display:none!important} #reviewScreen{min-width:0;width:100%} #paperContainer{min-width:0;width:100%;max-width:48rem} .paper-sheet{min-width:0;max-width:100%;box-sizing:border-box;overflow-wrap:anywhere} .paper-sheet svg{max-width:100%;height:auto} .paper-sheet .overflow-x-auto{max-width:100%;min-width:0;overscroll-behavior-x:contain} .paper-sheet .overflow-x-auto table{min-width:420px} .paper-sheet .found-error{box-shadow:none} .paper-sheet .seg{overflow-wrap:anywhere} #homeScreen,#levelsScreen{min-height:100dvh;position:relative;isolation:isolate;background:linear-gradient(125deg,#fffbe9,#f9e5a3,#fff5d4,#fffdf3);background-size:300% 300%;animation:drift 18s ease-in-out infinite} @keyframes drift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}} .home-content{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100dvh;padding:24px 12px 24vh;text-align:center;gap:16px;color:#594627} .home-content h1{font-size:clamp(28px,5vw,58px);font-weight:800;line-height:1.3;margin-bottom:20px} .menu-btn{display:block;border:2px solid #b39150;border-radius:14px;background:#fffdf5;color:#594627;padding:12px 24px;font-weight:700;min-width:210px;box-shadow:0 3px 8px #8d6d2420} .menu-btn:hover{background:#fff0bd} .character{position:absolute;bottom:0;width:min(29vw,360px);max-height:43vh;object-fit:contain;object-position:bottom;pointer-events:none;z-index:1} .student{left:0}.teacher{right:0} #levelsScreen{padding:24px 14px;color:#594627} .level-list{max-width:760px;margin:auto;display:grid;gap:12px} .level-card{width:100%;text-align:left;border:1px solid #b39150;background:#fffdf5;border-radius:12px;padding:15px;display:flex;gap:12px;align-items:center;overflow-wrap:anywhere} .level-card:disabled{opacity:.65;background:#eee9db;cursor:not-allowed} .level-card strong{display:block} .level-card span:last-child{margin-left:auto;flex-shrink:0} @media(max-width:639px){.paper-sheet{padding:22px 12px!important;scroll-margin-top:190px} #paperContainer{padding-bottom:90px} #reviewScreen>div{padding-left:8px;padding-right:8px;gap:0} .paper-sheet .indent-8{text-indent:1.5em} .character{width:43vw;max-height:27vh} .home-content{padding-bottom:30vh} .paper-sheet .inspectable{margin-left:0!important;margin-right:0!important} } @media(prefers-reduced-motion:reduce){#homeScreen,#levelsScreen{animation:none}}
+
+body{background:#fff9e7;isolation:isolate} body::before{content:"";position:fixed;inset:0;background:url('/static/image/background.png') center/cover no-repeat;opacity:.3;z-index:-1;pointer-events:none} #homeScreen,#levelsScreen,#musicScreen,#reviewScreen{background:transparent;animation:none} #musicScreen{min-height:100dvh;padding:24px;color:#594627} .home-content{min-height:100dvh;padding:24px 12px;gap:16px} .character{position:absolute;top:50%;bottom:auto;transform:translateY(-50%);height:60vh;width:auto;max-width:29vw;max-height:none;object-fit:contain;object-position:center} .student{left:2vw}.teacher{right:2vw} .characters{display:contents} .music-choice[aria-pressed=true]{background:#f5dfa0;border-color:#795b20} .music-back{min-width:0;align-self:flex-start} .music-panel{max-width:420px;margin:auto;display:flex;flex-direction:column;align-items:center;gap:16px} .music-panel h2{font-size:28px;font-weight:bold} .diagram-label{font-family:Arial,'Noto Sans TC',sans-serif} @media(orientation:portrait){.home-content{min-height:100dvh;justify-content:center;padding:24px 0;gap:14px}.characters{display:flex;justify-content:space-around;width:100%;align-items:center;margin-top:12px}.character{position:static;transform:none;width:50vw;max-width:50vw;height:auto;max-height:none}.home-content h1{margin-bottom:10px}} @media(orientation:landscape){.home-content h1{max-width:60vw}.home-content{padding-inline:20vw}} 
+</style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+<section id="homeScreen"><div class="home-content"><h1>論文格式來找碴 🔍</h1><button class="menu-btn" id="startGame">開始遊戲</button><button class="menu-btn" id="homeGuide">📖 APA 7 手冊</button><button class="menu-btn" id="musicOpen">選擇音樂</button><div class="characters"><img class="character student" src="/static/image/student.png" alt="" onerror="if(!this.dataset.fallback){this.dataset.fallback=1;this.src='/static/imagestudent.png'}else{this.hidden=true}"><img class="character teacher" src="/static/image/teacher.png" alt="" onerror="this.hidden=true"></div></div></section><section id="musicScreen" hidden><div class="music-panel"><button id="musicBack" class="menu-btn music-back" aria-label="返回上一頁">← 返回</button><h2>選擇音樂</h2><p>開始遊戲後播放所選音樂</p><button class="menu-btn music-choice" data-track="default">預設</button><button class="menu-btn music-choice" data-track="light">輕快</button><button class="menu-btn music-choice" data-track="night">夜間</button><button class="menu-btn music-choice" data-track="none">無</button></div></section><section id="levelsScreen" hidden><div class="level-list"><button id="backHome" class="menu-btn" style="min-width:0;justify-self:start">⌂ 返回首頁</button><h2 style="font-size:26px;font-weight:bold">選擇審查任務</h2><p id="levelProgress"></p><div id="levelCards" class="level-list" style="width:100%"></div></div></section><audio id="bgm" src="/static/audio/bgm.mp3" loop preload="none"></audio><div id="reviewScreen" hidden>
+  <!-- 頂部固定審查官控制列 (HUD) -->
+  <header class="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-2">
+      <!-- 左側：標題與關卡選擇 -->
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-sm shrink-0">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-sm sm:text-base font-bold text-slate-800 leading-tight">APA 7 論文審查官</h1>
+            <span id="langBadge" class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">中文關卡</span>
+          </div>
+          <div class="flex items-center gap-1.5 mt-0.5">
+            <button id="reviewBack" type="button" class="px-2 py-1 border rounded-lg">⌂ 返回選單</button><span id="levelSelect" hidden></span><span id="currentLevelLabel" class="text-xs"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 中間：狀態儀表板 (愛心 & 抓錯進度) -->
+      <div class="flex items-center gap-3 sm:gap-5 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/80">
+        <!-- 生命值愛心 -->
+        <div class="flex items-center gap-1" title="剩餘審查機會（點錯 3 次結束本關）">
+          <span class="text-xs font-medium text-slate-500 hidden sm:inline mr-1">耐力:</span>
+          <div id="heartsContainer" class="flex items-center gap-1 text-base sm:text-lg">
+            <span>❤️</span><span>❤️</span><span>❤️</span>
+          </div>
+        </div>
+
+        <div class="h-4 w-px bg-slate-300"></div>
+
+        <!-- 找到錯誤進度 -->
+        <div class="flex items-center gap-1.5">
+          <span class="text-xs font-medium text-slate-500">已揪出錯誤:</span>
+          <span id="foundCounter" class="text-sm sm:text-base font-bold text-blue-600">0 / 5</span>
+        </div>
+      </div>
+
+      <!-- 右側：放大鏡審查按鈕 & APA 7 手冊 -->
+      <div class="flex items-center gap-2">
+        <button id="guideBtn" type="button" hidden class="px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition flex items-center gap-1.5 shadow-sm" title="開啟 APA 7 審查重點小抄">
+          <span>📖</span>
+          <span class="hidden md:inline">APA 7 手冊</span>
+        </button>
+
+        <button id="inspectToggleBtn" type="button" class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-2 shadow-sm border bg-white text-slate-700 border-slate-300 hover:bg-slate-50">
+          <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+          </svg>
+          <span id="inspectBtnText">開啟放大鏡</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 模式提示橫幅 -->
+    <div id="modeBanner" class="bg-slate-100 border-t border-slate-200/70 px-4 py-1.5 text-center text-xs text-slate-600 transition-colors">
+      目前為<strong>【閱讀瀏覽模式】</strong>：請先上下滑動閱讀整篇論文（共 7 頁），發現可疑之處再點擊右上角<strong>「開啟放大鏡」</strong>（或按空白鍵）進行抓錯！
+    </div>
+  </header>
+
+  <!-- 主要內容區：左側頁碼導覽 + 中央模擬論文紙張 -->
+  <div class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-6 flex gap-6 relative">
+
+    <!-- 左側桌面版快速跳頁導覽 (Sticky) -->
+    <aside class="hidden lg:flex flex-col w-56 shrink-0">
+      <div class="sticky top-28 space-y-4">
+        <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/80">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">論文頁面導覽 (7 頁)</h2>
+          <nav id="pageNavList" class="space-y-1.5">
+            <!-- 由 JS 動態生成 1~7 頁導覽按鈕 -->
+          </nav>
+        </div>
+
+        <div class="bg-blue-50/80 rounded-2xl p-4 border border-blue-100 text-xs text-slate-600 space-y-2">
+          <div class="font-bold text-blue-800 flex items-center gap-1.5">
+            <span>💡</span> 審查官操作提示
+          </div>
+          <p>• 每篇論文共有 <strong>7 頁</strong>，請滑動完整檢查內文、圖表與 Reference。</p>
+          <p>• <strong>閱讀模式</strong>下隨意點擊不會扣愛心。</p>
+          <p>• 開啟<strong>放大鏡模式</strong>後，點擊你認為違反 APA 7 規範的句子、標題或圖表。</p>
+          <p>• 已抓出的紅框項目可再次點擊重溫解析。</p>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 中央模擬 A4 論文紙張串流 -->
+    <main id="paperContainer" class="flex-1 max-w-3xl mx-auto space-y-8 pb-24">
+      <!-- 由 JS 渲染 7 頁論文紙張 -->
+    </main>
+  </div>
+
+  <!-- 行動版右下角懸浮放大鏡快捷鈕 -->
+  <button id="floatingInspectBtn" type="button" class="sm:hidden fixed bottom-5 right-5 z-30 w-14 h-14 rounded-full bg-blue-600 text-white shadow-lg flex items-center justify-center border-2 border-white" title="切換放大鏡模式">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+    </svg>
+  </button>
+
+</div>
+  <!-- 點錯時的輕量 Toast 提示 -->
+  <div id="toastMsg" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 transition-all duration-300 translate-y-2">
+    <div class="bg-slate-800 text-white px-4 py-2.5 rounded-xl shadow-lg text-xs sm:text-sm font-medium flex items-center gap-2 border border-slate-700">
+      <span class="text-amber-400 text-base">⚠️</span>
+      <span id="toastText">這處格式符合 APA 7 規範，沒有錯誤喔！（愛心 -1）</span>
+    </div>
+  </div>
+
+  <!-- 抓到錯誤的教學解說 Modal -->
+  <div id="explanationModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+    <div class="bg-white rounded-2xl max-w-xl w-full shadow-2xl border border-slate-200 overflow-hidden transform transition-all">
+      <div class="bg-emerald-600 text-white px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <span class="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center font-bold text-sm">✓</span>
+          <div>
+            <h3 class="font-bold text-base sm:text-lg">抓到 APA 7 錯誤了！</h3>
+            <p id="expCategory" class="text-xs text-emerald-100">類別：內文引用格式</p>
+          </div>
+        </div>
+        <span id="expProgressBadge" class="text-xs font-bold bg-emerald-800/60 px-2.5 py-1 rounded-full">1 / 5</span>
+      </div>
+
+      <div class="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+        <div>
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">錯誤原因解析</h4>
+          <p id="expReason" class="text-sm sm:text-base text-slate-700 leading-relaxed"></p>
+        </div>
+
+        <div class="grid grid-cols-1 gap-3 pt-1">
+          <div class="bg-red-50/80 border border-red-200 rounded-xl p-3.5">
+            <div class="text-xs font-bold text-red-700 mb-1 flex items-center gap-1">
+              <span>✗</span> 原本錯誤寫法
+            </div>
+            <p id="expWrongText" class="text-xs sm:text-sm text-red-900 font-medium leading-relaxed"></p>
+          </div>
+
+          <div class="bg-emerald-50/80 border border-emerald-200 rounded-xl p-3.5">
+            <div class="text-xs font-bold text-emerald-700 mb-1 flex items-center gap-1">
+              <span>✓</span> 建議修正寫法
+            </div>
+            <p id="expCorrectText" class="text-xs sm:text-sm text-emerald-900 font-medium leading-relaxed"></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-slate-50 px-6 py-3.5 border-t border-slate-200 flex justify-end">
+        <button id="closeExpBtn" type="button" class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-sm transition">
+          繼續審查論文
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- APA 7 審查手冊 Modal -->
+  <div id="guideModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+    <div class="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden">
+      <div class="bg-slate-800 text-white px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">📖</span>
+          <h3 class="font-bold text-base sm:text-lg">APA 第七版（APA 7）審查重點手冊</h3>
+        </div>
+        <button id="closeGuideX" type="button" class="text-slate-300 hover:text-white text-xl leading-none">&times;</button>
+      </div>
+
+      <div class="p-6 space-y-4 max-h-[75vh] overflow-y-auto text-sm text-slate-700">
+        <div class="p-3.5 rounded-xl bg-blue-50 border border-blue-100">
+          <h4 class="font-bold text-blue-900 mb-1">1. 三位以上作者的內文引用（APA 7 重大變革）</h4>
+          <p class="text-xs sm:text-sm leading-relaxed">從<strong>第一次</strong>內文引用起，就必須簡寫為第一作者＋「等人」或 <code>et al.</code>（例如：<code>黃家齊等人（2006）</code> 或 <code>Schwartz et al. (2014)</code>），不可在首次引用列出全部作者。但最後的 <strong>Reference 清單</strong>不可用 <code>et al.</code> 簡寫！</p>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+          <h4 class="font-bold text-slate-900 mb-1">2. 英文姓名與標點符號規範</h4>
+          <p class="text-xs sm:text-sm leading-relaxed">• 英文內文引用<strong>只寫姓氏（Surname）</strong>，不可寫出名字或縮寫（如應寫 <code>Bandura (1997)</code>，而非 <code>Albert Bandura (1997)</code>）。<br>• <strong>全形與半形標點</strong>：中文文獻括號引用使用全形括號與全形頓號／逗號 <code>（黃家齊、林億明，2006）</code>；英文文獻使用半形括號與半形逗號 <code>(Schwartz, 2014)</code>，切忌中英標點混用。</p>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+          <h4 class="font-bold text-slate-900 mb-1">3. 改寫（Paraphrasing）忠於原意原則</h4>
+          <p class="text-xs sm:text-sm leading-relaxed">改寫並非單純替換同義字，<strong>不可改變原研究變項的測量概念</strong>（應先核對原始文獻，本遊戲不考需要查閱原文的語意差異），也不可加入原文未證實的推論。</p>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+          <h4 class="font-bold text-slate-900 mb-1">4. 圖與表的標題位置（APA 7 統一規則）</h4>
+          <p class="text-xs sm:text-sm leading-relaxed">APA 7 規定<strong>「圖」與「表」的標題一律放在上方</strong>（不可把圖名放在圖的下方），且<strong>編號（如 表 1 / Figure 1）與標題名稱必須分列兩行</strong>。</p>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+          <h4 class="font-bold text-slate-900 mb-1">5. 論文結構順序與 Reference 格式</h4>
+          <p class="text-xs sm:text-sm leading-relaxed">• 正確順序為：<strong>正文 → Reference（參考文獻） → Appendix（附錄）</strong>。<br>• 同作者同年份多篇文獻需加上 <code>a、b</code> 區分（如 <code>2020a, 2020b</code>）。<br>• 英文期刊若有 <strong>DOI</strong> 應附於 Reference 最後（如 <code>https://doi.org/10.xxxx/...</code>）。</p>
+        </div>
+      </div>
+
+      <div class="bg-slate-50 px-6 py-3.5 border-t border-slate-200 flex justify-end">
+        <button id="closeGuideBtn" type="button" class="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold">
+          我瞭解了
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 過關 / 遊戲結束結算 Modal -->
+  <div id="resultModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+    <div class="bg-white rounded-2xl max-w-xl w-full shadow-2xl border border-slate-200 overflow-hidden">
+      <div id="resultHeader" class="bg-blue-600 text-white px-6 py-5 text-center">
+        <div id="resultIcon" class="text-4xl mb-2">🎉</div>
+        <h3 id="resultTitle" class="font-bold text-xl">審查任務完成！</h3>
+        <p id="resultSubtitle" class="text-xs sm:text-sm text-blue-100 mt-1">你成功找出了本篇論文所有的 APA 7 格式錯誤。</p>
+      </div>
+
+      <div class="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">本關 5 項審查重點回顧</h4>
+        <div id="resultSummaryList" class="space-y-2.5 text-xs sm:text-sm">
+          <!-- 由 JS 動態填入本關 5 個錯誤總結 -->
+        </div>
+      </div>
+
+      <div class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
+        <button id="resultBack" class="px-4 py-2 rounded-xl border border-slate-300">返回選單</button><button id="retryLevelBtn" type="button" class="px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-sm font-semibold">
+          重新挑戰本關
+        </button>
+        <button id="nextLevelBtn" type="button" class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-sm">
+          前往下一關 →
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 關卡資料（獨立檔案）：必須放在引擎之前載入 -->
+  <script src="papers.js"></script>
+
+  <script>
+    /**
+     * ============================================================================
+     * 遊戲引擎與音效控制器 (Game Engine)；關卡資料見 papers.js
+     * ============================================================================
+     */
+    const state = {
+      currentLevelIdx: 0,
+      hearts: 3,
+      foundErrors: new Set(),
+      inspectMode: false,
+      gameOver: false
+    };
+
+    // Web Audio API 簡易柔和提示音效（無外部音檔依賴）
+    let audioCtx;
+    function playTone(type) {
+      try {
+        audioCtx ||= new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        const now = audioCtx.currentTime;
+        if (type === 'success') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(523.25, now); // C5
+          osc.frequency.setValueAtTime(659.25, now + 0.09); // E5
+          gain.gain.setValueAtTime(0.12, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+          osc.start(now);
+          osc.stop(now + 0.35);
+        } else if (type === 'error') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(220, now);
+          osc.frequency.linearRampToValueAtTime(165, now + 0.22);
+          gain.gain.setValueAtTime(0.14, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+          osc.start(now);
+          osc.stop(now + 0.25);
+        } else if (type === 'win') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(523.25, now);
+          osc.frequency.setValueAtTime(659.25, now + 0.1);
+          osc.frequency.setValueAtTime(783.99, now + 0.2);
+          osc.frequency.setValueAtTime(1046.5, now + 0.3);
+          gain.gain.setValueAtTime(0.14, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+          osc.start(now);
+          osc.stop(now + 0.6);
+        }
+      } catch (e) {
+        // 忽略自動播放政策限制
+      }
+    }
+
+    // DOM 參照
+    const levelSelect = document.getElementById('levelSelect');
+    const langBadge = document.getElementById('langBadge');
+    const heartsContainer = document.getElementById('heartsContainer');
+    const foundCounter = document.getElementById('foundCounter');
+    const inspectToggleBtn = document.getElementById('inspectToggleBtn');
+    const floatingInspectBtn = document.getElementById('floatingInspectBtn');
+    const inspectBtnText = document.getElementById('inspectBtnText');
+    const modeBanner = document.getElementById('modeBanner');
+    const paperContainer = document.getElementById('paperContainer');
+    const pageNavList = document.getElementById('pageNavList');
+    const toastMsg = document.getElementById('toastMsg');
+    const toastText = document.getElementById('toastText');
+
+    // Modals
+    const explanationModal = document.getElementById('explanationModal');
+    const guideModal = document.getElementById('guideModal');
+    const resultModal = document.getElementById('resultModal');
+
+    // 初始化關卡選單
+    const $ = id => document.getElementById(id);
+    let cleared = new Set();
+    try { cleared = new Set(JSON.parse(localStorage.getItem('apa-cleared-v1') || '[]')); } catch(e) {}
+    let screen = 'home', won = false, runId = 0;
+    function unlocked(i){return i===0 || Array.from({length:i},(_,j)=>j).every(j=>cleared.has(j));}
+    function showScreen(name){screen=name; ['home','music','levels','review'].forEach(n=>$(n+'Screen').hidden=n!==name); window.scrollTo(0,0);}
+    function initLevelSelector(){
+      $('levelCards').replaceChildren(); $('levelProgress').textContent=`已通關 ${cleared.size} / ${PAPERS_DATA.length}`;
+      PAPERS_DATA.forEach((paper,i)=>{const b=document.createElement('button');b.className='level-card';b.disabled=!unlocked(i);const t=document.createElement('div');const h=document.createElement('strong');h.textContent=`第 ${i+1} 關`;const name=document.createElement('div');name.textContent=paper.title.replace(/^第\s*\d+\s*關[：: ]*/, '');t.append(h,name);const icon=document.createElement('span');icon.textContent=cleared.has(i)?'✓':unlocked(i)?'▶':'🔒';b.append(t,icon);b.onclick=()=>loadLevel(i);$('levelCards').append(b);});
+    }
+    function returnMenu(){runId++;setInspectMode(false);resultModal.classList.add('hidden');resultModal.classList.remove('flex');initLevelSelector();showScreen('levels');}
+    const tracks={default:'/static/audio/bgm.mp3',light:'/static/audio/bgm_1.mp3',night:'/static/audio/bgm_2.mp3',none:null};
+    let musicChoice='default';try{const saved=localStorage.getItem('apa-music-v1');if(Object.hasOwn(tracks,saved))musicChoice=saved;}catch(e){}
+    function updateMusic(){document.querySelectorAll('.music-choice').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.track===musicChoice)));}
+    $('musicOpen').onclick=()=>{updateMusic();showScreen('music');};
+    $('musicBack').onclick=()=>showScreen('home');
+    document.querySelectorAll('.music-choice').forEach(b=>b.onclick=()=>{musicChoice=b.dataset.track;try{localStorage.setItem('apa-music-v1',musicChoice);}catch(e){}updateMusic();});
+    $('startGame').onclick=()=>{const a=$('bgm');a.pause();const track=tracks[musicChoice];if(track){if(a.getAttribute('src')!==track)a.src=track;a.volume=.35;a.play().catch(()=>{});}returnMenu();};
+    $('backHome').onclick=()=>{$('bgm').pause();showScreen('home');};
+    $('homeGuide').onclick=()=>{guideModal.classList.remove('hidden');guideModal.classList.add('flex');};
+    $('reviewBack').onclick=returnMenu; $('resultBack').onclick=returnMenu;
+    // 切換放大鏡審查模式
+    function setInspectMode(active) {
+      state.inspectMode = active;
+      if (active) {
+        document.body.classList.add('inspect-mode');
+        inspectToggleBtn.className = "px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-2 shadow-md border bg-blue-600 text-white border-blue-700 inspect-active-btn";
+        inspectBtnText.textContent = "審查模式 ON";
+        floatingInspectBtn.classList.remove('bg-blue-600');
+        floatingInspectBtn.classList.add('bg-red-600', 'inspect-active-btn');
+        modeBanner.className = "bg-blue-600 text-white px-4 py-1.5 text-center text-xs transition-colors shadow-inner";
+        modeBanner.innerHTML = "🔍 <strong>【放大鏡審查模式已啟動】</strong>：請點擊論文中違反 APA 7 規範的句子、圖表標題或 Reference！（點錯會扣 1 顆愛心喔）";
+      } else {
+        document.body.classList.remove('inspect-mode');
+        inspectToggleBtn.className = "px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-2 shadow-sm border bg-white text-slate-700 border-slate-300 hover:bg-slate-50";
+        inspectBtnText.textContent = "開啟放大鏡";
+        floatingInspectBtn.classList.remove('bg-red-600', 'inspect-active-btn');
+        floatingInspectBtn.classList.add('bg-blue-600');
+        modeBanner.className = "bg-slate-100 border-t border-slate-200/70 px-4 py-1.5 text-center text-xs text-slate-600 transition-colors";
+        modeBanner.innerHTML = "目前為<strong>【閱讀瀏覽模式】</strong>：請先上下滑動閱讀整篇論文（共 7 頁），發現可疑之處再點擊右上角<strong>「開啟放大鏡」</strong>（或按空白鍵）進行抓錯！";
+      }
+    }
+
+    // 更新愛心與分數 HUD
+    function updateHUD() {
+      const paper = PAPERS_DATA[state.currentLevelIdx];
+      langBadge.textContent = paper.lang === 'zh' ? '中文關卡 (1-5)' : 'English Level (6-10)';
+      langBadge.className = paper.lang === 'zh'
+        ? 'text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200'
+        : 'text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200';
+
+      let heartsHTML = '';
+      for (let i = 0; i < 3; i++) {
+        heartsHTML += i < state.hearts
+          ? '<span class="transition-transform duration-200 inline-block">❤️</span>'
+          : '<span class="opacity-30 grayscale inline-block">🖤</span>';
+      }
+      heartsContainer.innerHTML = heartsHTML;
+      foundCounter.textContent = `${state.foundErrors.size} / 5`;
+    }
+
+    // 顯示輕量 Toast 提示
+    let toastTimer = null;
+    function showToast(message) {
+      toastText.textContent = message;
+      toastMsg.classList.remove('opacity-0', 'translate-y-2');
+      toastMsg.classList.add('opacity-100', 'translate-y-0');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toastMsg.classList.remove('opacity-100', 'translate-y-0');
+        toastMsg.classList.add('opacity-0', 'translate-y-2');
+      }, 2400);
+    }
+
+    // 繪製內建 SVG 學術概念圖（避免任何外部圖片連結失效）
+    let svgUid = 0;
+    function renderAcademicDiagramSVG(block, lang) {
+      const u=++svgUid, d=block.diagram, zh=lang==='zh';
+      const roles={x:zh?'前因變項 (X)':'Predictor (X)',m:zh?'中介變項 (M)':'Mediator (M)',y:zh?'依變項 (Y)':'Outcome (Y)',w:zh?'調節變項 (W)':'Moderator (W)'};
+      const esc=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const box=(x,y,role,lines)=>`<rect x="${x}" y="${y}" width="164" height="76" rx="5" fill="white" stroke="#334155"/><text x="${x+82}" y="${y+18}" text-anchor="middle" font-size="11" fill="#64748b">${roles[role]}</text>${lines.map((t,i)=>`<text x="${x+82}" y="${y+37+i*16}" text-anchor="middle" font-size="13" font-weight="600" fill="#1e293b">${esc(t)}</text>`).join('')}`;
+      const line=(x,y,X,Y,dash=false)=>`<line x1="${x}" y1="${y}" x2="${X}" y2="${Y}" stroke="#334155" stroke-width="1.6" ${dash?'stroke-dasharray="5 4"':''} marker-end="url(#arrow-${u})"/>`;
+      let body='',height=260;
+      if(d.kind==='sem'){body=box(10,25,'x',d.x[0])+box(10,135,'x',d.x[1])+box(386,80,'y',d.y)+line(174,63,386,108)+line(174,173,386,128)+`<text x="260" y="72" font-size="12">γ = .35***</text><text x="260" y="168" font-size="12">γ = .42***</text>`;}
+      else if(d.kind==='moderation'){body=box(10,150,'x',d.x)+box(386,150,'y',d.y)+box(198,15,'w',d.w)+line(174,188,386,188)+line(280,91,280,185,true);}
+      else if(d.kind==='parallel'){body=box(10,92,'x',d.x)+box(198,8,'m',d.m[0])+box(198,176,'m',d.m[1])+box(386,92,'y',d.y)+line(174,115,198,46)+line(174,145,198,214)+line(362,46,386,115)+line(362,214,386,145);}
+      else if(d.kind==='dualX'){body=box(10,15,'x',d.x[0])+box(10,165,'x',d.x[1])+box(198,90,'m',d.m)+box(386,90,'y',d.y)+line(174,53,198,112)+line(174,203,198,144)+line(362,128,386,128)+`<path d="M174 38 H468 V90 M174 220 H468 V166" fill="none" stroke="#334155" stroke-width="1.6" marker-end="url(#arrow-${u})"/>`;}
+      else {height=d.w?320:220;const y=d.w?150:65;body=box(10,y,'x',d.x)+box(198,y,'m',d.m)+box(386,y,'y',d.y)+line(174,y+38,198,y+38)+line(362,y+38,386,y+38);if(d.direct)body+=`<path d="M92 ${y+76} V${y+100} H468 V${y+76}" fill="none" stroke="#334155" marker-end="url(#arrow-${u})"/>`;if(d.w){const wx=d.stage===1?104:292;body+=box(wx,10,'w',d.w)+line(wx+82,86,wx+82,y+35,true);}}
+      return `<svg viewBox="0 0 560 ${height}" class="diagram-label w-full max-w-lg mx-auto my-3" role="img" aria-label="${esc(block.title)}"><defs><marker id="arrow-${u}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#334155"/></marker></defs>${body}</svg>`;
+    }
+
+    // <splitSentences>
+    // 將一個段落切成「句子」，作為放大鏡的最小可選單位（中英文皆可）
+    function splitSentences(text) {
+      if (/[\u3400-\u9fff]/.test(text)) {
+        // 中文：以 。！？ 結尾切句
+        return text.match(/[^。！？]+(?:[。！？]+|$)/g) || [text];
+      }
+      // 英文：保護縮寫，再於「. ! ?（可接右括號／引號）＋空白」處切句，小數點（.48）不會被切開
+      let t = text;
+      [['et. al.', 'et\u0001 al\u0001'], ['et al.', 'et al\u0001'], ['e.g.', 'e\u0001g\u0001'], ['i.e.', 'i\u0001e\u0001'], ['vs.', 'vs\u0001'], ['No.', 'No\u0001'], ['Fig.', 'Fig\u0001']]
+        .forEach(([a, b]) => { t = t.split(a).join(b); });
+      t = t.replace(/\b([A-Z])\.(?=\s)/g, '$1\u0001');          // 人名縮寫：Amy C. Edmondson
+      t = t.replace(/(^|\n)(\d+)\.(?=\s)/g, '$1$2\u0001');       // 列表編號：1. 2.
+      const out = [];
+      const re = /[.!?]+["')\]]*\s+/g;
+      let last = 0, m;
+      while ((m = re.exec(t))) {
+        const end = m.index + m[0].length;
+        out.push(t.slice(last, end));
+        last = end;
+      }
+      if (last < t.length) out.push(t.slice(last));
+      return out.map((s) => s.split('\u0001').join('.'));
+    }
+    // </splitSentences>
+
+    // 渲染當前關卡的 7 頁論文
+    function renderPaper(levelIdx) {
+      const paper = PAPERS_DATA[levelIdx];
+      paperContainer.innerHTML = '';
+      pageNavList.innerHTML = '';
+
+      const fontClass = paper.lang === 'zh' ? 'academic-paper-zh' : 'academic-paper-en';
+
+      paper.pages.forEach((pageData) => {
+        // 建立左側頁碼導覽按鈕
+        const navBtn = document.createElement('button');
+        navBtn.type = 'button';
+        navBtn.className = 'w-full text-left px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-blue-600 transition flex items-center justify-between';
+        const firstHeading = pageData.blocks.find(b => b.type === 'h2' || b.type === 'title');
+        const label = firstHeading ? firstHeading.text.slice(0, 12) : `第 ${pageData.pageNum} 頁`;
+        navBtn.innerHTML = `<span class="truncate">${label}</span><span class="text-[11px] text-slate-400 shrink-0 ml-1">P.${pageData.pageNum}</span>`;
+        navBtn.onclick = () => {
+          document.getElementById(`paper-page-${pageData.pageNum}`).scrollIntoView({ behavior: 'smooth', block: 'start' });
+        };
+        pageNavList.appendChild(navBtn);
+
+        // 建立 A4 模擬紙張卡片
+        const sheet = document.createElement('article');
+        sheet.id = `paper-page-${pageData.pageNum}`;
+        sheet.className = `paper-sheet ${fontClass} px-6 sm:px-14 py-10 sm:py-12 scroll-mt-28`;
+
+        // 頁首 (Running Head & Page Number)
+        const headerDiv = document.createElement('div');
+        headerDiv.className = 'flex items-center justify-between text-xs text-slate-400 border-b border-slate-100 pb-3 mb-7 select-none font-sans';
+        headerDiv.innerHTML = `
+          <span class="tracking-wider uppercase truncate max-w-[75%]">${paper.runningHead}</span>
+          <span class="font-semibold text-slate-500">Page ${pageData.pageNum} / 7</span>
+        `;
+        sheet.appendChild(headerDiv);
+
+        // 渲染紙張內各個區塊
+        const bodyWrapper = document.createElement('div');
+        bodyWrapper.className = 'space-y-5 text-[15px] sm:text-base text-slate-800';
+
+        pageData.blocks.forEach((block) => {
+          let el;
+
+          if (block.type === 'title') {
+            el = document.createElement('h1');
+            el.className = 'text-xl sm:text-2xl font-bold text-center text-slate-900 leading-snug pt-2';
+            el.textContent = block.text;
+          } else if (block.type === 'meta') {
+            el = document.createElement('p');
+            el.className = 'text-sm text-center text-slate-500 pb-4 border-b border-slate-100';
+            el.textContent = block.text;
+          } else if (block.type === 'h2') {
+            el = document.createElement('h2');
+            el.className = 'text-lg sm:text-xl font-bold text-slate-900 pt-2';
+            el.textContent = block.text;
+          } else if (block.type === 'h3') {
+            el = document.createElement('h3');
+            el.className = 'text-base sm:text-lg font-bold text-slate-800 pt-1';
+            el.textContent = block.text;
+          } else if (block.type === 'div-divider') {
+            el = document.createElement('div');
+            el.className = 'text-center text-xs text-slate-400 py-3 font-sans tracking-widest';
+            el.textContent = block.text;
+          } else if (block.type === 'p') {
+            el = document.createElement('p');
+            el.className = paper.lang === 'zh' ? 'text-justify indent-8 whitespace-pre-line' : 'text-left indent-8 whitespace-pre-line';
+            if (paper.segmented) {
+              // 逐句可點選：錯誤只落在含有 errorMatch 的那一句
+              el.dataset.segmented = '1';
+              splitSentences(block.text).forEach((sentence) => {
+                const span = document.createElement('span');
+                const isErr = !!(block.errorId && block.errorMatch && sentence.includes(block.errorMatch));
+                span.className = 'inspectable seg';
+                if (isErr) span.dataset.errorId = block.errorId;
+                span.textContent = sentence;
+                span.addEventListener('click', (e) => handleBlockClick(e, span, isErr ? block.errorId : undefined));
+                el.appendChild(span);
+              });
+            } else {
+              el.textContent = block.text;
+            }
+          } else if (block.type === 'ref') {
+            el = document.createElement('p');
+            el.className = 'apa-hanging-indent text-sm sm:text-[15px] text-slate-700 leading-relaxed';
+            el.textContent = block.text;
+          } else if (block.type === 'figure') {
+            el = document.createElement('div');
+            el.className = 'my-4 p-3 rounded-xl border border-slate-200/80 bg-white';
+            const captionHTML = block.singleLine
+              ? `<div class="text-sm font-bold text-slate-800 my-1">${block.number} <span class="italic font-normal">${block.title}</span></div>`
+              : `<div class="text-sm font-bold text-slate-800">${block.number}</div><div class="text-sm italic text-slate-700 mb-1">${block.title}</div>`;
+
+            const svgHTML = renderAcademicDiagramSVG(block, paper.lang);
+            el.innerHTML = block.captionPosition === 'top'
+              ? `${captionHTML}${svgHTML}`
+              : `${svgHTML}${captionHTML}`;
+          } else if (block.type === 'table') {
+            el = document.createElement('div');
+            el.className = 'my-5 overflow-x-auto';
+            const captionHTML = block.splitLines
+              ? `<div class="text-sm font-bold text-slate-900">${block.number}</div><div class="text-sm italic text-slate-700 mb-2">${block.title}</div>`
+              : `<div class="text-sm font-bold text-slate-900 mb-2">${block.number} <span class="italic font-normal">${block.title}</span></div>`;
+
+            const thHTML = block.headers.map(h => `<th class="py-2 px-3 text-left font-semibold text-slate-800 border-y-2 border-slate-800 text-xs sm:text-sm">${h}</th>`).join('');
+            const trHTML = block.rows.map((row, rIdx) => {
+              const borderBottom = rIdx === block.rows.length - 1 ? 'border-b-2 border-slate-800' : 'border-b border-slate-200';
+              return `<tr class="${borderBottom}">${row.map(cell => `<td class="py-2 px-3 text-xs sm:text-sm text-slate-700">${cell}</td>`).join('')}</tr>`;
+            }).join('');
+
+            const tableHTML = `
+              <table class="w-full border-collapse my-1 font-sans">
+                <thead><tr>${thHTML}</tr></thead>
+                <tbody>${trHTML}</tbody>
+              </table>
+              <div class="text-xs text-slate-500 mt-1.5 italic">${block.note || ''}</div>
+            `;
+
+            el.innerHTML = block.captionPosition === 'top'
+              ? `${captionHTML}${tableHTML}`
+              : `${tableHTML}${captionHTML}`;
+          }
+
+          // 讓所有實質內容區塊在放大鏡模式下皆可點擊審查
+          if (el && !el.dataset.segmented && block.type !== 'div-divider' && block.type !== 'meta') {
+            el.classList.add('inspectable');
+            if (block.errorId) {
+              el.dataset.errorId = block.errorId;
+            }
+            el.addEventListener('click', (e) => handleBlockClick(e, el, block.errorId));
+          }
+
+          if (el) bodyWrapper.appendChild(el);
+        });
+
+        sheet.appendChild(bodyWrapper);
+
+        // 頁尾頁碼
+        const footerDiv = document.createElement('div');
+        footerDiv.className = 'mt-10 pt-3 border-t border-slate-100 text-center text-xs text-slate-400 select-none font-sans';
+        footerDiv.textContent = `— ${pageData.pageNum} —`;
+        sheet.appendChild(footerDiv);
+
+        paperContainer.appendChild(sheet);
+      });
+    }
+
+    // 處理玩家點擊論文段落事件
+    function handleBlockClick(e, element, errorId) {
+      if(state.gameOver || screen!=="review") return;
+      // 如果該錯誤已經被抓出，無論是否在放大鏡模式，點擊都可重新打開教學解析
+      if (errorId && state.foundErrors.has(errorId)) {
+        openExplanationModal(errorId);
+        return;
+      }
+
+      // 若未開啟放大鏡模式，僅供閱讀選取，不扣血也不觸發判定
+      if (!state.inspectMode || state.gameOver) {
+        return;
+      }
+
+      e.stopPropagation();
+
+      if (errorId) {
+        // 抓對錯誤！
+        state.foundErrors.add(errorId);
+        element.classList.add('found-error');
+        playTone('success');
+        updateHUD();
+        openExplanationModal(errorId);
+      } else {
+        // 點錯了（該段沒有 APA 7 錯誤）
+        state.hearts = Math.max(0, state.hearts - 1);
+        playTone('error');
+        updateHUD();
+
+        element.classList.remove('shake-wrong');
+        void element.offsetWidth; // 觸發重繪以重播動畫
+        element.classList.add('shake-wrong');
+        setTimeout(() => element.classList.remove('shake-wrong'), 450);
+
+        if (state.hearts <= 0) {
+          state.gameOver = true;
+          setInspectMode(false);
+          const token=runId; setTimeout(() => {if(token===runId && screen==="review") showResultModal(false);}, 350);
+        } else {
+          showToast(`這處格式符合 APA 7 規範，沒有錯誤喔！（剩餘愛心：${state.hearts}）`);
+        }
+      }
+    }
+
+    // 開啟錯誤原因與修正教學視窗
+    function openExplanationModal(errorId) {
+      const paper = PAPERS_DATA[state.currentLevelIdx];
+      const errInfo = paper.errors[errorId];
+      if (!errInfo) return;
+
+      document.getElementById('expCategory').textContent = `類別：${errInfo.category}`;
+      document.getElementById('expProgressBadge').textContent = `已抓出 ${state.foundErrors.size} / 5`;
+      document.getElementById('expReason').textContent = errInfo.reason;
+      document.getElementById('expWrongText').textContent = errInfo.wrong;
+      document.getElementById('expCorrectText').textContent = errInfo.correct;
+
+      explanationModal.classList.remove('hidden');
+      explanationModal.classList.add('flex');
+    }
+
+    // 關閉教學視窗並檢查是否已集滿 5 個錯誤
+    function closeExplanationModal() {
+      explanationModal.classList.add('hidden');
+      explanationModal.classList.remove('flex');
+
+      if (state.foundErrors.size === 5 && !state.gameOver) {
+        state.gameOver = true;
+        setInspectMode(false);
+        playTone('win');
+        showResultModal(true);
+      }
+    }
+
+    // 顯示過關或失敗結算視窗
+    function showResultModal(isWin) {
+      const paper = PAPERS_DATA[state.currentLevelIdx];
+      const resultHeader = document.getElementById('resultHeader');
+      const resultIcon = document.getElementById('resultIcon');
+      const resultTitle = document.getElementById('resultTitle');
+      const resultSubtitle = document.getElementById('resultSubtitle');
+      const resultSummaryList = document.getElementById('resultSummaryList');
+      const nextLevelBtn = document.getElementById('nextLevelBtn');
+
+      won = isWin && state.foundErrors.size === 5 && state.hearts > 0;
+      if (won) {
+        cleared.add(state.currentLevelIdx); try { localStorage.setItem("apa-cleared-v1",JSON.stringify([...cleared])); } catch(e) {}
+        resultHeader.className = 'bg-emerald-600 text-white px-6 py-5 text-center';
+        resultIcon.textContent = '🏆';
+        resultTitle.textContent = '審查通過！全數抓出 5 項錯誤';
+        resultSubtitle.textContent = `恭喜完成「${paper.title}」的 APA 7 格式審查！`;
+      } else {
+        resultHeader.className = 'bg-rose-600 text-white px-6 py-5 text-center';
+        resultIcon.textContent = '💔';
+        resultTitle.textContent = '愛心耗盡！本關審查結束';
+        resultSubtitle.textContent = `你抓出了 ${state.foundErrors.size} / 5 個錯誤，來看看本篇論文藏了哪些陷阱吧：`;
+      }
+
+      // 列出本關 5 個錯誤總結供學習
+      resultSummaryList.innerHTML = '';
+      Object.entries(paper.errors).forEach(([key, err], idx) => {
+        const wasFound = state.foundErrors.has(key);
+        const item = document.createElement('div');
+        item.className = `p-3 rounded-xl border ${wasFound ? 'bg-emerald-50/70 border-emerald-200' : 'bg-slate-50 border-slate-200'}`;
+        item.innerHTML = `
+          <div class="flex items-center justify-between font-bold mb-1 ${wasFound ? 'text-emerald-800' : 'text-slate-700'}">
+            <span>${idx + 1}. ${err.category}</span>
+            <span class="text-[11px] px-2 py-0.5 rounded-full ${wasFound ? 'bg-emerald-200 text-emerald-900' : 'bg-slate-200 text-slate-600'}">
+              ${wasFound ? '✓ 已抓出' : '未發現'}
+            </span>
+          </div>
+          <p class="text-slate-600 leading-relaxed">${err.reason}</p>
+        `;
+        resultSummaryList.appendChild(item);
+      });
+
+      if (won && state.currentLevelIdx < PAPERS_DATA.length - 1) {
+        nextLevelBtn.classList.remove('hidden');
+        nextLevelBtn.textContent = `前往第 ${state.currentLevelIdx + 2} 關 →`;
+      } else {
+        nextLevelBtn.classList.add('hidden');
+      }
+
+      resultModal.classList.remove('hidden');
+      resultModal.classList.add('flex');
+    }
+
+    // 載入指定關卡
+    function loadLevel(idx) {
+      if (!Number.isInteger(idx) || idx<0 || idx>=PAPERS_DATA.length || !unlocked(idx)) return;
+      runId++; won=false; showScreen("review");
+      $("currentLevelLabel").textContent=`第 ${idx+1} 關`;
+      state.currentLevelIdx = idx;
+      state.hearts = 3;
+      state.foundErrors.clear();
+      state.gameOver = false;
+      levelSelect.value = idx;
+      setInspectMode(false);
+      updateHUD();
+      renderPaper(idx);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // 事件綁定
+    inspectToggleBtn.addEventListener('click', () => setInspectMode(!state.inspectMode));
+    floatingInspectBtn.addEventListener('click', () => setInspectMode(!state.inspectMode));
+
+    levelSelect.addEventListener('change', (e) => {
+      loadLevel(parseInt(e.target.value, 10));
+    });
+
+    document.getElementById('closeExpBtn').addEventListener('click', closeExplanationModal);
+
+    // APA 7 審查手冊 Modal 控制
+    document.getElementById('guideBtn').addEventListener('click', () => {
+      guideModal.classList.remove('hidden');
+      guideModal.classList.add('flex');
+    });
+    const closeGuide = () => {
+      guideModal.classList.add('hidden');
+      guideModal.classList.remove('flex');
+    };
+    document.getElementById('closeGuideBtn').addEventListener('click', closeGuide);
+    document.getElementById('closeGuideX').addEventListener('click', closeGuide);
+
+    // 結算視窗按鈕
+    document.getElementById('retryLevelBtn').addEventListener('click', () => {
+      resultModal.classList.add('hidden');
+      resultModal.classList.remove('flex');
+      loadLevel(state.currentLevelIdx);
+    });
+
+    document.getElementById('nextLevelBtn').addEventListener('click', () => {
+      resultModal.classList.add('hidden');
+      resultModal.classList.remove('flex');
+      if (won && state.currentLevelIdx + 1 < PAPERS_DATA.length && unlocked(state.currentLevelIdx+1)) {
+        loadLevel(state.currentLevelIdx + 1);
+      }
+    });
+
+    // 鍵盤快捷鍵：空白鍵或 M 鍵切換放大鏡模式，ESC 關閉視窗
+    document.addEventListener('keydown', (e) => {
+      const anyModalOpen = !explanationModal.classList.contains('hidden') ||
+                           !guideModal.classList.contains('hidden') ||
+                           !resultModal.classList.contains('hidden');
+
+      if (e.key === 'Escape') {
+        if (!explanationModal.classList.contains('hidden')) closeExplanationModal();
+        if (!guideModal.classList.contains('hidden')) closeGuide();
+      } else if ((e.code === 'Space' || e.key === 'm' || e.key === 'M') && !anyModalOpen && screen === 'review' && !state.gameOver) {
+        if (document.activeElement.tagName !== 'SELECT') {
+          e.preventDefault();
+          setInspectMode(!state.inspectMode);
+        }
+      }
+    });
+
+    // 啟動遊戲
+    window.addEventListener('DOMContentLoaded', () => {
+      initLevelSelector();
+      showScreen("home");
+    });
+  </script>
+</body>
