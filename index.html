@@ -53,7 +53,7 @@
     body.inspect-mode .inspectable {
       border-radius: 4px;
       transition: background-color 0.15s ease, outline 0.15s ease;
-      /* No geometry changes when toggling inspection. */
+
     }
 
     body.inspect-mode .inspectable:hover {
@@ -67,7 +67,7 @@
       outline: 2px solid #dc2626 !important;
       outline-offset: -1px;
       border-radius: 6px !important;
-
+      position: relative;
       box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
       cursor: pointer !important;
     }
@@ -132,18 +132,56 @@
 
 body{background:#fff9e7;isolation:isolate} body::before{content:"";position:fixed;inset:0;background:url('/static/image/background.png') center/cover no-repeat;opacity:.5;z-index:-1;pointer-events:none} #homeScreen,#levelsScreen,#musicScreen,#reviewScreen{background:transparent;animation:none} #musicScreen{min-height:100dvh;padding:24px;color:#594627} .home-content{min-height:100dvh;padding:24px 12px;gap:16px} .character{position:absolute;top:50%;bottom:auto;transform:translateY(-50%);height:60vh;width:auto;max-width:40vw;max-height:none;object-fit:contain;object-position:center} .student{left:2vw}.teacher{right:2vw} .characters{display:contents} .music-choice[aria-pressed=true]{background:#f5dfa0;border-color:#795b20} .music-back{min-width:0;align-self:flex-start} .music-panel{max-width:420px;margin:auto;display:flex;flex-direction:column;align-items:center;gap:16px} .music-panel h2{font-size:28px;font-weight:bold} .diagram-label{font-family:Arial,'Noto Sans TC',sans-serif} @media(orientation:portrait){.home-content{min-height:100dvh;justify-content:center;padding:24px 0;gap:14px}.characters{display:flex;justify-content:space-around;width:100%;align-items:center;margin-top:12px}.character{position:static;transform:none;width:50vw;max-width:50vw;height:auto;max-height:none}.home-content h1{margin-bottom:10px}} @media(orientation:landscape){.home-content h1{max-width:60vw}.home-content{padding-inline:20vw}} 
 
-    /* Keep toolbar geometry stable across modes. */
-    #inspectBtnText { display:inline-block; min-width:7em; text-align:center; white-space:nowrap; }
-    #modeBanner { display:grid; grid-template-areas:"message"; }
-    #modeBanner > span { grid-area:message; }
-    #modeBanner > span[aria-hidden="true"] { visibility:hidden; }
-    #modeBanner > span[aria-hidden="false"] { visibility:visible; }
-    #paperContainer .inspectable { -webkit-tap-highlight-color:transparent; }
-    #paperContainer .found-error { outline:2px solid #dc2626 !important; outline-offset:-1px; }
-    @media (hover:none) { body.inspect-mode .inspectable:not(.found-error):hover { background-color:transparent; outline:none; } }
-    </style>
+/* Stable paper geometry in both review modes. */
+#paperContainer, .paper-sheet, .paper-sheet > div { min-width:0; max-width:100%; }
+.paper-sheet .seg { display:inline; }
+.paper-sheet .found-error { outline:2px solid #dc2626 !important; outline-offset:-1px; }
+.paper-sheet .overflow-x-auto { width:100%; }
+#modeBanner { border-top:1px solid transparent; }
+@media (max-width: 639px) {
+  #reviewScreen > header > div:first-child {
+    display:grid; grid-template-columns:minmax(0,7fr) minmax(0,3fr);
+    gap:6px; align-items:stretch;
+  }
+  #reviewScreen > header > div:first-child > div:first-child { grid-column:1 / -1; min-width:0; }
+  #reviewStatus { min-width:0; gap:4px; padding-inline:5px; justify-content:space-between; }
+  #reviewStatus > div { min-width:0; }
+  #heartsContainer { gap:1px; font-size:13px; }
+  #reviewStatus > div:last-child { gap:3px; white-space:nowrap; }
+  #reviewStatus > div:last-child > span:first-child { font-size:11px; }
+  #foundCounter { font-size:12px; }
+  #reviewActions { min-width:0; }
+  #inspectToggleBtn { width:100%; height:100%; min-width:0; justify-content:center; padding-inline:3px; gap:3px; }
+  #inspectToggleBtn svg { flex-shrink:0; width:14px; height:14px; }
+  #inspectBtnText { font-size:11px; line-height:1.2; white-space:normal; text-align:center; }
+}
+
+    /* 點錯回饋：固定於視窗內側，不占版面空間 */
+    #wrongScreenFlash {
+      position: fixed; inset: 0; z-index: 99999;
+      pointer-events: none; opacity: 0;
+      box-shadow: inset 0 0 0 5px #ef4444, inset 0 0 35px 8px rgba(239,68,68,.65);
+    }
+    #wrongScreenFlash.flash-active { animation: wrongScreenFlash .48s ease-out; }
+    @keyframes wrongScreenFlash {
+      0%, 20% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+    #paperContainer.paper-shake { animation: paperShake .35s ease-in-out; }
+    @keyframes paperShake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-4px); }
+      40% { transform: translateX(4px); }
+      60% { transform: translateX(-3px); }
+      80% { transform: translateX(3px); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #paperContainer.paper-shake, .shake-wrong { animation: none; }
+    }
+</style>
 </head>
 <body class="min-h-screen flex flex-col">
+  <div id="wrongScreenFlash" aria-hidden="true"></div>
 
 <section id="homeScreen"><div class="home-content"><h1>論文格式來找碴 🔍</h1><button class="menu-btn" id="startGame">開始遊戲</button><button class="menu-btn" id="homeGuide">📖 APA 7 手冊</button><button class="menu-btn" id="musicOpen">選擇音樂</button><div class="characters"><img class="character student" src="/static/image/student.png" alt="" onerror="if(!this.dataset.fallback){this.dataset.fallback=1;this.src='/static/imagestudent.png'}else{this.hidden=true}"><img class="character teacher" src="/static/image/teacher.png" alt="" onerror="this.hidden=true"></div></div></section><section id="musicScreen" hidden><div class="music-panel"><button id="musicBack" class="menu-btn music-back" aria-label="返回上一頁">← 返回</button><h2>選擇音樂</h2><p>開始遊戲後播放所選音樂</p><button class="menu-btn music-choice" data-track="default">預設</button><button class="menu-btn music-choice" data-track="light">輕快</button><button class="menu-btn music-choice" data-track="night">夜間</button><button class="menu-btn music-choice" data-track="none">無</button></div></section><section id="levelsScreen" hidden><div class="level-list"><button id="backHome" class="menu-btn" style="min-width:0;justify-self:start">⌂ 返回首頁</button><h2 style="font-size:26px;font-weight:bold">選擇審查任務</h2><p id="levelProgress"></p><div id="levelCards" class="level-list" style="width:100%"></div></div></section><audio id="bgm" src="/static/audio/bgm.mp3" loop preload="none"></audio><div id="reviewScreen" hidden>
   <!-- 頂部固定審查官控制列 (HUD) -->
@@ -168,7 +206,7 @@ body{background:#fff9e7;isolation:isolate} body::before{content:"";position:fixe
       </div>
 
       <!-- 中間：狀態儀表板 (愛心 & 抓錯進度) -->
-      <div class="flex items-center gap-3 sm:gap-5 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/80">
+      <div id="reviewStatus" class="flex items-center gap-3 sm:gap-5 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/80">
         <!-- 生命值愛心 -->
         <div class="flex items-center gap-1" title="剩餘審查機會（點錯 3 次結束本關）">
           <span class="text-xs font-medium text-slate-500 hidden sm:inline mr-1">耐力:</span>
@@ -187,7 +225,7 @@ body{background:#fff9e7;isolation:isolate} body::before{content:"";position:fixe
       </div>
 
       <!-- 右側：放大鏡審查按鈕 & APA 7 手冊 -->
-      <div class="flex items-center gap-2">
+      <div id="reviewActions" class="flex items-center gap-2">
         <button id="guideBtn" type="button" hidden class="px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition flex items-center gap-1.5 shadow-sm" title="開啟 APA 7 審查重點小抄">
           <span>📖</span>
           <span class="hidden md:inline">APA 7 手冊</span>
@@ -475,14 +513,19 @@ body{background:#fff9e7;isolation:isolate} body::before{content:"";position:fixe
     $('backHome').onclick=()=>{$('bgm').pause();showScreen('home');};
     $('homeGuide').onclick=()=>{guideModal.classList.remove('hidden');guideModal.classList.add('flex');};
     $('reviewBack').onclick=returnMenu; $('resultBack').onclick=returnMenu;
-    // 切換放大鏡審查模式
-    function updateModeBanner(active) {
-      if (!modeBanner.querySelector('[data-mode-message]')) {
-        modeBanner.innerHTML = `<span data-mode-message="read">目前為<strong>【閱讀瀏覽模式】</strong>：請先上下滑動閱讀整篇論文（共 7 頁），發現可疑之處再點擊右上角<strong>「開啟放大鏡」</strong>（或按空白鍵）進行抓錯！</span><span data-mode-message="inspect">🔍 <strong>【放大鏡審查模式已啟動】</strong>：請點擊論文中違反 APA 7 規範的句子、圖表標題或 Reference！（點錯會扣 1 顆愛心喔）</span>`;
-      }
-      modeBanner.querySelector('[data-mode-message="read"]').setAttribute('aria-hidden', String(active));
-      modeBanner.querySelector('[data-mode-message="inspect"]').setAttribute('aria-hidden', String(!active));
+    // Reserve the larger of both banner text heights without changing either message.
+    const bannerMessages = [modeBanner.innerHTML, '🔍 <strong>【放大鏡審查模式已啟動】</strong>：請點擊論文中違反 APA 7 規範的句子、圖表標題或 Reference！（點錯會扣 1 顆愛心喔）'];
+    function stableBanner(active) {
+      modeBanner.style.display = 'grid';
+      modeBanner.replaceChildren(...bannerMessages.map((message, i) => {
+        const item = document.createElement('div');
+        item.style.gridArea = '1 / 1';
+        item.innerHTML = message;
+        if (i !== Number(active)) { item.style.visibility = 'hidden'; item.setAttribute('aria-hidden', 'true'); }
+        return item;
+      }));
     }
+    // 切換放大鏡審查模式
     function setInspectMode(active) {
       state.inspectMode = active;
       if (active) {
@@ -491,8 +534,8 @@ body{background:#fff9e7;isolation:isolate} body::before{content:"";position:fixe
         inspectBtnText.textContent = "審查模式 ON";
         floatingInspectBtn.classList.remove('bg-blue-600');
         floatingInspectBtn.classList.add('bg-red-600', 'inspect-active-btn');
-        modeBanner.className = "bg-blue-600 text-white border-t border-transparent px-4 py-1.5 text-center text-xs transition-colors shadow-inner";
-        updateModeBanner(true);
+        modeBanner.className = "bg-blue-600 text-white px-4 py-1.5 text-center text-xs transition-colors shadow-inner";
+        modeBanner.innerHTML = "🔍 <strong>【放大鏡審查模式已啟動】</strong>：請點擊論文中違反 APA 7 規範的句子、圖表標題或 Reference！（點錯會扣 1 顆愛心喔）";
       } else {
         document.body.classList.remove('inspect-mode');
         inspectToggleBtn.className = "px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-2 shadow-sm border bg-white text-slate-700 border-slate-300 hover:bg-slate-50";
@@ -500,8 +543,9 @@ body{background:#fff9e7;isolation:isolate} body::before{content:"";position:fixe
         floatingInspectBtn.classList.remove('bg-red-600', 'inspect-active-btn');
         floatingInspectBtn.classList.add('bg-blue-600');
         modeBanner.className = "bg-slate-100 border-t border-slate-200/70 px-4 py-1.5 text-center text-xs text-slate-600 transition-colors";
-        updateModeBanner(false);
+        modeBanner.innerHTML = "目前為<strong>【閱讀瀏覽模式】</strong>：請先上下滑動閱讀整篇論文（共 7 頁），發現可疑之處再點擊右上角<strong>「開啟放大鏡」</strong>（或按空白鍵）進行抓錯！";
       }
+      stableBanner(active);
     }
 
     // 更新愛心與分數 HUD
@@ -723,6 +767,23 @@ body{background:#fff9e7;isolation:isolate} body::before{content:"";position:fixe
       });
     }
 
+    let wrongFeedbackTimer;
+    function triggerWrongFeedback() {
+      const flash = document.getElementById('wrongScreenFlash');
+      const paper = document.getElementById('paperContainer');
+      clearTimeout(wrongFeedbackTimer);
+      flash.classList.remove('flash-active');
+      paper.classList.remove('paper-shake');
+      void flash.offsetWidth;
+      flash.classList.add('flash-active');
+      paper.classList.add('paper-shake');
+      wrongFeedbackTimer = setTimeout(() => {
+        flash.classList.remove('flash-active');
+        paper.classList.remove('paper-shake');
+      }, 500);
+      try { if (typeof navigator.vibrate === 'function') navigator.vibrate(90); } catch (_) {}
+    }
+
     // 處理玩家點擊論文段落事件
     function handleBlockClick(e, element, errorId) {
       if(state.gameOver || screen!=="review") return;
@@ -752,6 +813,7 @@ body{background:#fff9e7;isolation:isolate} body::before{content:"";position:fixe
         playTone('error');
         updateHUD();
 
+        triggerWrongFeedback();
         element.classList.remove('shake-wrong');
         void element.offsetWidth; // 觸發重繪以重播動畫
         element.classList.add('shake-wrong');
